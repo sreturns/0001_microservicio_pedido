@@ -10,6 +10,8 @@ import org.springframework.web.client.RestTemplate;
 
 import com.sinensia.dao.PedidoDao;
 import com.sinensia.dto.ProductoDTO;
+import com.sinensia.exceptions.InsuficientStockException;
+import com.sinensia.exceptions.ProductNotFoundException;
 import com.sinensia.model.Pedido;
 
 /**
@@ -55,30 +57,36 @@ public class PedidoServiceImpl implements PedidoService {
 
 		List<ProductoDTO> productos = Arrays.asList(template.getForObject(URL_CONNECTION, ProductoDTO[].class));
 
-		ProductoDTO producto = new ProductoDTO();
+		ProductoDTO producto = null;
+		
+		try {
+			producto = productos.stream().filter(p -> p.getProducto().equalsIgnoreCase(nombre)).findFirst()
+					.orElseThrow(() -> new ProductNotFoundException("Producto no encontrado"));
 
-		Pedido pedido;
+			Pedido pedido = new Pedido(producto.getCodigoProducto(), unidades, unidades * producto.getPrecioUnitario(),
+					new Date());
 
-		for (ProductoDTO productoDTO : productos) {
-			if (productoDTO.getProducto().equalsIgnoreCase(nombre)) {
-				producto = productoDTO;
-			}
+			dao.save(pedido);
+			
+		} catch (ProductNotFoundException e) {
+			System.out.println("Producto no encontrado");
 		}
 
-		pedido = new Pedido(producto.getCodigoProducto(), unidades, unidades * producto.getPrecioUnitario(),
-				new Date());
-
-		dao.save(pedido);
-		if (producto != null) {
+		try {
 			// Actualizar el stock del producto
+			if (producto.getStock() < unidades) {
+				throw new InsuficientStockException("No hay suficiente stock");
+			}
 			int nuevoStock = producto.getStock() - unidades;
 			producto.setStock(nuevoStock);
 
 			// Actualizar el producto en el servicio de productos
 			template.put(URL_CONNECTION, producto);
+
+		} catch (InsuficientStockException e) {
+			System.out.println("Stock agotado"); // Aqui iria un log
 		}
 
 		return getAll();
-
 	}
 }
