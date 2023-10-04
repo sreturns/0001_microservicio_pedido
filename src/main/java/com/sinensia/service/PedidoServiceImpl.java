@@ -75,9 +75,9 @@ public class PedidoServiceImpl implements PedidoService {
 			producto.setStock(nuevoStock);
 
 			// Actualizar el producto en el servicio de productos
-			template.put(URL_CONNECTION + "/" + producto.getCodigoProducto(), producto);
+			template.put(URL_CONNECTION, producto);
 		}
-		
+
 		return getAll();
 
 	}
